@@ -13,8 +13,20 @@ rbtree *new_rbtree(void) {
   return t;
 }
 
+// 서브트리를 후위순회로 모두 해제
+static void free_subtree(rbtree *t, node_t *n) {
+  if (!t || !n || n == t->nil) return; // sentinel은 free하지 않음
+  free_subtree(t, n->left);
+  free_subtree(t, n->right);
+  free(n);
+}
+
+// 트리 전체 해제
 void delete_rbtree(rbtree *t) {
   // TODO: reclaim the tree nodes's memory
+  if (!t) return;
+  free_subtree(t, t->root);
+  free(t->nil); // sentinel은 마지막에 1번만 free
   free(t);
 }
 
@@ -180,6 +192,13 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
 
 node_t *rbtree_find(const rbtree *t, const key_t key) {
   // TODO: implement find
+  node_t *tmp = t->root;
+
+  while(tmp != t->nil)
+  {
+
+  }
+
   return t->root;
 }
 

@@ -3,11 +3,14 @@
 #include <stdlib.h>
 
 rbtree *new_rbtree(void) {
-  rbtree *p = (rbtree *)calloc(1, sizeof(rbtree));
   // TODO: initialize struct if needed
-  p->root = NULL;
-  
-  return p;
+  rbtree *t = calloc(1, sizeof(*t));
+  node_t *nil = calloc(1, sizeof(*nil));
+  nil->color = RBTREE_BLACK;
+  nil->parent = nil->left = nil->right = nil;
+  t->nil = nil;
+  t->root = nil;
+  return t;
 }
 
 void delete_rbtree(rbtree *t) {
@@ -20,22 +23,22 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
   if (!t) return NULL;
 
   // node 초기 설정
-  node_t *node = (node_t *)calloc(1, sizeof(node_t));
-  node->parent = node->left = node->right = NULL;
-  node->color = (!(t->root) ? RBTREE_BLACK : RBTREE_RED);
+  node_t *node = calloc(1, sizeof(*node));
+  node->left = node->right = node->parent = t->nil;
+  node->color = (t->root == t->nil ? RBTREE_BLACK : RBTREE_RED);
   node->key = key;
 
   // 트리가 비어있으면 바로 루트로 삼고 함수 종료
-  if (!(t->root)) 
+  if (t->root == t->nil)
   {
     t->root = node;
     return node;
   }
 
   // BST 삽입 먼저 구현
-  node_t *parent = NULL;
+  node_t *parent = t->nil;
   node_t *tmp = t->root;
-  while (tmp) {
+  while (tmp != t->nil) {
     parent = tmp;
     tmp = (key < tmp->key) ? tmp->left : tmp->right;
   }
@@ -49,7 +52,7 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
 
   if (node->parent->color == RBTREE_RED) 
   {
-    insert_fixup(t, node);
+    // insert_fixup(t, node);
   }
 
   return node;

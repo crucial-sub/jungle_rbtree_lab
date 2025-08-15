@@ -113,35 +113,8 @@ static void test_root_black(void) {
   delete_rbtree(t);
 }
 
-// [TC2] 7,5,10 순 삽입 → 왼/오 자식 자리에 정확히 배치되는지
-static void test_bst_basic_shape_7_5_10(void) {
-  rbtree *t = new_rbtree();
-  rbtree_insert(t, 7);
-  rbtree_insert(t, 5);
-  rbtree_insert(t, 10);
-
-#ifdef SENTINEL
-  node_t *nil = t->nil;
-  CHECK(t->root != nil);
-  CHECK(t->root->key == 7);
-  CHECK(t->root->left  != nil && t->root->left->key  == 5);
-  CHECK(t->root->right != nil && t->root->right->key == 10);
-  CHECK(t->root->left->parent  == t->root);
-  CHECK(t->root->right->parent == t->root);
-#else
-  CHECK(t->root != NULL);
-  CHECK(t->root->key == 7);
-  CHECK(t->root->left  != NULL && t->root->left->key  == 5);
-  CHECK(t->root->right != NULL && t->root->right->key == 10);
-  CHECK(t->root->left->parent  == t->root);
-  CHECK(t->root->right->parent == t->root);
-#endif
-
-  delete_rbtree(t);
-}
-
-// [TC3] 왼쪽 사슬: 7,5,3 → root->left->left로 내려가는지
-static void test_bst_left_chain_7_5_3(void) {
+// [TC3-RB] 7,5,3 삽입 → LL 회전 결과 점검 (RB 버전)
+static void test_rb_left_chain_rotates(void) {
   rbtree *t = new_rbtree();
   rbtree_insert(t, 7);
   rbtree_insert(t, 5);
@@ -149,65 +122,32 @@ static void test_bst_left_chain_7_5_3(void) {
 
 #ifdef SENTINEL
   node_t *nil = t->nil;
-  CHECK(t->root->left != nil);
-  CHECK(t->root->left->key == 5);
-  CHECK(t->root->left->left != nil);
-  CHECK(t->root->left->left->key == 3);
+  // 1) 루트는 5여야 함 (LL → g=7 우회전)
+  CHECK(t->root != nil);
+  CHECK(t->root->key == 5);
+
+  // 2) 루트의 양쪽 자식은 3,7
+  CHECK(t->root->left  != nil && t->root->left->key  == 3);
+  CHECK(t->root->right != nil && t->root->right->key == 7);
+
+  // 3) 루트는 BLACK
+  CHECK(t->root->color == RBTREE_BLACK);
 #else
-  CHECK(t->root->left != NULL);
-  CHECK(t->root->left->key == 5);
-  CHECK(t->root->left->left != NULL);
-  CHECK(t->root->left->left->key == 3);
+  CHECK(t->root != NULL);
+  CHECK(t->root->key == 5);
+  CHECK(t->root->left  && t->root->left->key  == 3);
+  CHECK(t->root->right && t->root->right->key == 7);
+  CHECK(t->root->color == RBTREE_BLACK);
 #endif
 
-  delete_rbtree(t);
-}
-
-static void test_bst_inorder_sorted(void) {
-  rbtree *t = new_rbtree();
-  const int arr[] = {7, 5, 10, 3, 6, 8, 12};
-  const size_t n = sizeof(arr)/sizeof(arr[0]);
-  for (size_t i = 0; i < n; ++i) CHECK(rbtree_insert(t, arr[i]) != NULL);
-
-  key_t out[32] = {0};
-  size_t m = 0;
-  inorder_collect(t, t->root, out, &m);
-  CHECK(m == n);
-  for (size_t i = 1; i < m; ++i) {
-    CHECK(out[i-1] <= out[i]);
-  }
-  delete_rbtree(t);
-}
-
-static void test_bst_duplicate_goes_right(void) {
-  rbtree *t = new_rbtree();
-  rbtree_insert(t, 5);
-  rbtree_insert(t, 5);
-  rbtree_insert(t, 5);
-
-#ifdef SENTINEL
-  node_t *nil = t->nil;
-  CHECK(t->root->key == 5);
-  CHECK(t->root->right != nil && t->root->right->key == 5);
-  CHECK(t->root->right->right != nil && t->root->right->right->key == 5);
-  // 왼쪽은 비어 있어도 OK (정책상 ==는 항상 오른쪽)
-#else
-  CHECK(t->root->key == 5);
-  CHECK(t->root->right != NULL && t->root->right->key == 5);
-  CHECK(t->root->right->right != NULL && t->root->right->right->key == 5);
-#endif
-
-  // (보너스) 중위순회하면 [5,5,5]가 나와야 함
-  key_t out[8] = {0};
-  size_t m = 0;
+  // 4) (선택) 중위순회 정렬 확인
+  key_t out[3] = {0}; size_t m = 0;
   inorder_collect(t, t->root, out, &m);
   CHECK(m == 3);
-  CHECK(out[0] == 5 && out[1] == 5 && out[2] == 5);
+  CHECK(out[0] == 3 && out[1] == 5 && out[2] == 7);
 
   delete_rbtree(t);
 }
-
-
 
 #endif // LOCAL_TEST
 
@@ -217,10 +157,7 @@ int main(void) {
   TEST(test_insert_one);
   TEST(test_inorder_sorted);
   TEST(test_root_black);
-    TEST(test_bst_basic_shape_7_5_10);
-    TEST(test_bst_left_chain_7_5_3);
-    TEST(test_bst_inorder_sorted);
-    TEST(test_bst_duplicate_goes_right);
+  TEST(test_rb_left_chain_rotates);
   printf("Summary: %d/%d tests passed.\n", tests_passed, tests_run);
 #else
   // 공식 테스트에선 driver가 링크되지 않지만,

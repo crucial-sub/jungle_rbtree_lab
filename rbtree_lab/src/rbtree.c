@@ -228,8 +228,95 @@ node_t *rbtree_max(const rbtree *t) {
   return tmp;
 }
 
-int rbtree_erase(rbtree *t, node_t *p) {
-  // TODO: implement erase
+// 노드 u 자리에 v 서브트리를 이식 (부모 링크 갱신)
+// v가 t->nil이어도 parent를 u->parent로 맞춰둬야 이후 delete-fixup에서 x->parent를 탈 수 있음.
+static void rbtree_transplant(rbtree *t, node_t *u, node_t *v) {
+  if (u->parent == t->nil) {
+    t->root = v;
+  } else if (u == u->parent->left) {
+    u->parent->left = v;
+  } else {
+    u->parent->right = v;
+  }
+  v->parent = u->parent;
+}
+
+static void rbtree_erase_fixup(rbtree *t, node_t *x) {
+
+}
+
+/*
+rbtree_erase 함수에서는 x,y,z 3가지 포인터가 등장한다.
+
+1. z: 삭제 대상
+2. y: 트리에서 실제로 제거되는 노드 (z 또는 z의 successor)
+    - z의 자식이 1개 이하일 경우: y는 z 자신.
+    - z의 자식이 2개일 경우: y는 z의 후임자(successor).
+3. x: y의 유일한 자식(없으면 nil)
+    - y가 빠져나간 빈자리를 메꾸기 위해 y의 원래 위치로 이동하게 됨
+    
+
+절차
+1. BST 규칙에 따라 z를 트리에서 제거한다. 이 과정에서 y와 x 포인터가 결정된다.
+2. 제거된 노드 y의 원래 색이 BLACK이었다면, 트리 속성이 깨졌을 수 있다.
+   이때 rbtree_erase_fixup(t, x)를 호출하여 속성을 복구한다.
+*/ 
+int rbtree_erase(rbtree *t, node_t *z) {
+  if (!t || z == t->nil) return 0;
+
+  node_t *y = z;
+  node_t *x = t->nil;
+  color_t y_origin_color = y->color;
+
+  // case 1: z의 왼쪽이 NIL → 오른쪽으로 교체
+  if (z->left == t->nil) {
+    x = z->right;
+    rbtree_transplant(t,z,z->right);
+  } 
+  // case 2: z의 오른쪽이 NIL → 왼쪽으로 교체
+  else if (z->right == t->nil) {
+    x = z->left;
+    rbtree_transplant(t,z,z->left);
+  } 
+  // 위 처리 결과 노드 z는 직접 제거되며 x는 z의 위치로 올라온 노드가 된다.(z에 자식이 없었다면 NIL)
+
+  // case 3: 양쪽 자식 존재 → 후임 노드로 대체
+  else {
+    // 후임 노드 찾기(y가 가리키게 만듬)
+    y = z->right;                              
+    while (y->left != t->nil) {
+      y = y->left;
+    }
+    y_origin_color = y->color;          // 트리에서 빠져나올 y의 색을 미리 저장
+    x = y->right;                       // x는 y의 유일한 자식 (successor는 왼쪽 자식이 없으므로)
+
+    // y를 원래 위치에서 제거하기
+    if (y->parent == z) {
+      // y가 z의 바로 오른쪽 자식인 경우,
+      // x가 NIL 노드일 수 있으므로, 부모 포인터를 명시적으로 설정
+      x->parent = y; // x가 NIL일 때도 x의 부모는 y여야 하므로 이를 명시해줘야한다.
+    } else {
+      // y가 z의 오른쪽 서브트리 깊숙이 있는 경우,
+      // 1. y의 원래 위치를 x로 대체하여 y를 트리에서 분리
+      rbtree_transplant(t, y, x);
+      // 2. y가 z의 자리를 차지할 준비: z의 오른쪽 서브트리를 y에게 넘김
+      y->right = z->right;
+      y->right->parent = y;
+    }
+    
+    // 공통 후처리: z 자리에 y 올리고, z의 왼쪽 서브트리를 y.left로, 색은 z의 색 유지
+    rbtree_transplant(t,z,y);
+    y->left = z->left;
+    y->left->parent = y;
+    y->color = z->color;
+  }
+
+  // 제거된 y자리가 원래 흑색이었다면 높이 위반 가능 → fixup
+  if (y_origin_color == RBTREE_BLACK) {
+    // rbtree_erase_fixup(t,x)
+  }
+
+  free(z); // 삭제된 노드 z의 메모리를 해제해야 메모리 누수가 발생하지 않음
   return 0;
 }
 

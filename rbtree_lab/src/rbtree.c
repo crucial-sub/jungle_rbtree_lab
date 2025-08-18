@@ -242,7 +242,107 @@ static void rbtree_transplant(rbtree *t, node_t *u, node_t *v) {
 }
 
 static void rbtree_erase_fixup(rbtree *t, node_t *x) {
-
+  while (x != t->root && x->color == RBTREE_BLACK)
+  {
+    if (x == x->parent->left) // x가 왼쪽 자식일 때
+    {
+      node_t *w = x->parent->right; // w는 x의 형제
+      // case 1: 형제가 적색일 경우 회전과 색 교환을 통해 형제가 흑색인 형태로(새로운 형제) 트리 구조를 조작
+      // => case 2,3,4(형제가 흑색인 case들) 중 하나로 변환되어 이중 흑색 처리를 이어나감
+      if (w->color == RBTREE_RED) {
+        // x.p, w 색 바꾸기
+        w->color = RBTREE_BLACK;
+        x->parent->color = RBTREE_RED;
+        // x.p 기준 좌회전
+        rotate_left(t, x->parent);
+        // new w 설정
+        w = x->parent->right;
+      }
+      // case 2: 형제가 흑색이면서 형제의 자식들이 모두 흑색일 경우
+      // => 재색칠을 통해 문제를 한 단계 위로 밀어올림(이중 흑색을 부모에게 전파) 
+      if (w->left->color == RBTREE_BLACK && w->right->color == RBTREE_BLACK) 
+      {
+        // x, w 흑색을 x.p로 전파
+        w->color = RBTREE_RED;
+        // x.p를 new x로 설정
+        x = x->parent;
+      }
+      // case 3 & case 4
+      else
+      {
+        // case 3: 형제가 흑색이면서 형제의 왼쪽 자식이 적색, 오른쪽 자식이 흑색인 경우
+        // => 재색칠과 회전을 통해 적색 노드를 오른쪽 자식으로 갖는 새로운 흑색 형제 만듬
+        // => case 4로 변환 완료!
+        if (w->left->color == RBTREE_RED && w->right->color == RBTREE_BLACK) 
+        {
+          // w, w.left 색 바꾸기
+          w->color = RBTREE_RED;
+          w->left->color = RBTREE_BLACK;
+          // w 기준 우회전
+          rotate_right(t, w);
+          // new w 설정
+          w = w->parent;
+        }
+        // case 4: 형제가 흑색이면서 형제의 오른쪽 자식이 적색인 경우(최종 해결 단계)
+        // 회전을 통해 궁극적으로 이중 흑색을 적색 노드로 옮겨 처리
+        // => 이중 흑색이 처리됐으므로 x를 루트로 옮겨 루프 강제 종료
+        if (w->right->color == RBTREE_RED) 
+        {
+          // w의 흑색을 자식들에게 전파하여 w를 적색 노드로 만듬
+          w->color = RBTREE_RED;
+          w->right->color = RBTREE_BLACK;
+          // x.p, w 색 바꾸기
+          w->color = x->parent->color;
+          x->parent->color = RBTREE_RED;
+          // x.p 기준으로 좌회전
+          rotate_left(t, x->parent);
+          // new w 설정
+          w = x->parent->right;
+          // x, new w의 흑색을 x.p로 전파
+          x->parent->color = RBTREE_BLACK;
+          // 이중 흑색 문제 해결! 포인터 x를 루트로 옮겨 루프 강제 종료
+          x = t->root;
+        }
+      }
+    }
+    else
+    {
+      node_t *w = x->parent->left;
+      if (w->color == RBTREE_RED) {
+        w->color = RBTREE_BLACK;
+        x->parent->color = RBTREE_RED;
+        rotate_right(t, x->parent);
+        w = x->parent->left;
+      }
+      if (w->right->color == RBTREE_BLACK && w->left->color == RBTREE_BLACK) 
+      {
+        w->color = RBTREE_RED;
+        x = x->parent;
+      }
+      else
+      {
+        if (w->right->color == RBTREE_RED && w->left->color == RBTREE_BLACK) 
+        {
+          w->color = RBTREE_RED;
+          w->right->color = RBTREE_BLACK;
+          rotate_left(t, w);
+          w = w->parent;
+        }
+        if (w->left->color == RBTREE_RED) 
+        {
+          w->color = RBTREE_RED;
+          w->left->color = RBTREE_BLACK;
+          w->color = x->parent->color;
+          x->parent->color = RBTREE_RED;
+          rotate_right(t, x->parent);
+          w = x->parent->left;
+          x->parent->color = RBTREE_BLACK;
+          x = t->root;
+        }
+      }
+    }
+  }
+  x->color = RBTREE_BLACK;
 }
 
 /*
@@ -303,7 +403,7 @@ int rbtree_erase(rbtree *t, node_t *z) {
       y->right = z->right;
       y->right->parent = y;
     }
-    
+
     // 공통 후처리: z 자리에 y 올리고, z의 왼쪽 서브트리를 y.left로, 색은 z의 색 유지
     rbtree_transplant(t,z,y);
     y->left = z->left;
@@ -313,7 +413,7 @@ int rbtree_erase(rbtree *t, node_t *z) {
 
   // 제거된 y자리가 원래 흑색이었다면 높이 위반 가능 → fixup
   if (y_origin_color == RBTREE_BLACK) {
-    // rbtree_erase_fixup(t,x)
+    rbtree_erase_fixup(t,x);
   }
 
   free(z); // 삭제된 노드 z의 메모리를 해제해야 메모리 누수가 발생하지 않음
@@ -321,6 +421,6 @@ int rbtree_erase(rbtree *t, node_t *z) {
 }
 
 int rbtree_to_array(const rbtree *t, key_t *arr, const size_t n) {
-  // TODO: implement to_array
+
   return 0;
 }

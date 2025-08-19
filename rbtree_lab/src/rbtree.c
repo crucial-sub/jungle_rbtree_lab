@@ -228,8 +228,7 @@ node_t *rbtree_max(const rbtree *t) {
   return tmp;
 }
 
-// 노드 u 자리에 v 서브트리를 이식 (부모 링크 갱신)
-// v가 t->nil이어도 parent를 u->parent로 맞춰둬야 이후 delete-fixup에서 x->parent를 탈 수 있음.
+// 노드 u 자리에 v 서브트리를 이식
 static void rbtree_transplant(rbtree *t, node_t *u, node_t *v) {
   if (u->parent == t->nil) {
     t->root = v;
@@ -288,18 +287,10 @@ static void rbtree_erase_fixup(rbtree *t, node_t *x) {
         // => 이중 흑색이 처리됐으므로 x를 루트로 옮겨 루프 강제 종료
         if (w->right->color == RBTREE_RED) 
         {
-          // w의 흑색을 자식들에게 전파하여 w를 적색 노드로 만듬
-          w->color = RBTREE_RED;
-          w->right->color = RBTREE_BLACK;
-          // x.p, w 색 바꾸기
           w->color = x->parent->color;
-          x->parent->color = RBTREE_RED;
-          // x.p 기준으로 좌회전
-          rotate_left(t, x->parent);
-          // new w 설정
-          w = x->parent->right;
-          // x, new w의 흑색을 x.p로 전파
           x->parent->color = RBTREE_BLACK;
+          w->right->color = RBTREE_BLACK;
+          rotate_left(t, x->parent);
           // 이중 흑색 문제 해결! 포인터 x를 루트로 옮겨 루프 강제 종료
           x = t->root;
         }
@@ -330,13 +321,10 @@ static void rbtree_erase_fixup(rbtree *t, node_t *x) {
         }
         if (w->left->color == RBTREE_RED) 
         {
-          w->color = RBTREE_RED;
-          w->left->color = RBTREE_BLACK;
           w->color = x->parent->color;
-          x->parent->color = RBTREE_RED;
-          rotate_right(t, x->parent);
-          w = x->parent->left;
           x->parent->color = RBTREE_BLACK;
+          w->left->color = RBTREE_BLACK;
+          rotate_right(t, x->parent);
           x = t->root;
         }
       }
@@ -354,6 +342,7 @@ rbtree_erase 함수에서는 x,y,z 3가지 포인터가 등장한다.
     - z의 자식이 2개일 경우: y는 z의 후임자(successor).
 3. x: y의 유일한 자식(없으면 nil)
     - y가 빠져나간 빈자리를 메꾸기 위해 y의 원래 위치로 이동하게 됨
+    - 이 때 제거된 y의 색이 흑색일 경우 RB-tree의 5번 속성(bh 보존)이 꺠지게 된다.
     
 
 절차

@@ -282,14 +282,25 @@ static void rbtree_erase_fixup(rbtree *t, node_t *x) {
           // new w 설정
           w = w->parent;
         }
-        // case 4: 형제가 흑색이면서 형제의 오른쪽 자식이 적색인 경우(최종 해결 단계)
-        // 회전을 통해 궁극적으로 이중 흑색을 적색 노드로 옮겨 처리
-        // => 이중 흑색이 처리됐으므로 x를 루트로 옮겨 루프 강제 종료
+        // case 4: 형제가 흑색이면서 형제의 오른쪽 자식(x에서 멀리 떨어져있는 조카)이 적색인 경우(최종 해결 단계)
         if (w->right->color == RBTREE_RED) 
         {
+          // case4의 목표 두 가지
+          // 1. x의 이중 흑색이라는 빚을 청산함과 동시에
+          // 2. 그 과정에서 새로운 불균형이 생기면 안된다.
+          // 그래야만 이 케이스안에서 최종 해결이 된다.
+
+          // x.p 기준으로 회전을 하기전 미리 필요한 색들을 예치해준다.
+          // 1. 회전으로 w가 새로운 서브트리 루트가 될테니, 위쪽에서 보던 색을 그대로 유지하려고 p의 색을 w에 이식
+          // => 조부모 관점의 bh/속성 보존
           w->color = x->parent->color;
+          // 2. 회전을 하면 x.p가 x의 경로에 새로 추가되므로 x.p에 흑색을 미리 예치해두면,
+          // 회전 후에 x경로에 흑색을 하나 보태주는것이 되어 균형이 맞게 되고 드디어 이중 흑색이라는 빚이 청산된다.
           x->parent->color = RBTREE_BLACK;
+          // 3. 회전을 하면 w가 서브트리 루트가 되면서 bh 계산에서 제외되기 때문에, 오른쪽 경로에서도 흑색 하나를 손해보게된다.
+          // => w.r에도 흑색을 예치해두면 회전 후에도 다시 균형이 맞게된다.
           w->right->color = RBTREE_BLACK;
+          // 위에서 색들을 미리 예치해두었기때문에 회전을 하면 곧바로 이중 흑색이 해소되고 모든 불균형이 사라진다.
           rotate_left(t, x->parent);
           // 이중 흑색 문제 해결! 포인터 x를 루트로 옮겨 루프 강제 종료
           x = t->root;
@@ -409,7 +420,22 @@ int rbtree_erase(rbtree *t, node_t *z) {
   return 0;
 }
 
-int rbtree_to_array(const rbtree *t, key_t *arr, const size_t n) {
+static void inorder(const rbtree *t, const node_t *x, 
+  key_t *arr, const size_t n, size_t *idx) {
+  if (x == t->nil || *idx >= n) return;
 
-  return 0;
+  inorder(t, x->left, arr, n, idx);
+  if (*idx < n) {
+    arr[*idx] = x->key;
+    (*idx)++;
+  }
+  inorder(t, x->right, arr, n, idx);
+}
+
+int rbtree_to_array(const rbtree *t, key_t *arr, const size_t n) {
+  if (t == NULL || arr == NULL || n == 0) return 0;
+
+  size_t idx = 0;
+  inorder(t, t->root, arr, n, &idx);
+  return 0; 
 }

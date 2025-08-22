@@ -2,6 +2,16 @@
 #include <assert.h>
 #include <stdlib.h>
 
+static void free_subtree(rbtree *t, node_t *n);
+static void rotate_left(rbtree *t, node_t *x);
+static void rotate_right(rbtree *t, node_t *x);
+static void insert_fixup(rbtree *t, node_t *z);
+static void rbtree_transplant(rbtree *t, node_t *u, node_t *v);
+static void rbtree_erase_fixup(rbtree *t, node_t *x);
+static void inorder(const rbtree *t, const node_t *x, 
+  key_t *arr, const size_t n, size_t *idx);
+
+
 rbtree *new_rbtree(void) {
   // TODO: initialize struct if needed
   rbtree *t = calloc(1, sizeof(*t));
